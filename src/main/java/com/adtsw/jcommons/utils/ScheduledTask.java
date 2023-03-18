@@ -1,10 +1,17 @@
 package com.adtsw.jcommons.utils;
 
-import lombok.AllArgsConstructor;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.util.concurrent.ThreadLocalRandom;
+import lombok.AllArgsConstructor;
 
 @AllArgsConstructor
 public class ScheduledTask implements Runnable {
@@ -14,6 +21,7 @@ public class ScheduledTask implements Runnable {
     private final Task actor;
     private final int variationInSeconds;
     private final int timeoutInSeconds;
+    private final ExecutorService taskExecutorService;
 
     @Override
     public void run() {
@@ -28,15 +36,25 @@ public class ScheduledTask implements Runnable {
         logger.info("Running scheduled task " + taskName);
 
         try {
-            Thread taskThread = new Thread(actor::execute);
-            taskThread.start();
-            long startTs = System.currentTimeMillis();
-            taskThread.join(timeoutInSeconds * 1000L);
-            if(taskThread.isAlive()) {
-                logger.warn("Terminating task " + taskName + " due to timeout");
-                taskThread.interrupt();
-                actor.onTimeout();
+            Runnable taskRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    actor.execute();
+                }
             };
+            FutureTask<Boolean> taskFuture = new FutureTask<>(taskRunnable, null);
+            Future<?> taskFutureHandle = taskExecutorService.submit(taskFuture);
+            long startTs = System.currentTimeMillis();
+            try {
+                taskFutureHandle.get(timeoutInSeconds, TimeUnit.SECONDS);
+            } catch (ExecutionException e) {
+                logger.warn("Terminating task " + taskName + " due to execution exception");
+                actor.onTimeout();
+            } catch (TimeoutException e) {
+                logger.warn("Terminating task " + taskName + " due to timeout exception");
+                taskFutureHandle.cancel(true);
+                actor.onTimeout();
+            }
             long endTs = System.currentTimeMillis();
             logger.info("Task " + taskName + " took " + (endTs - startTs) + " ms");
         } catch (InterruptedException e) {

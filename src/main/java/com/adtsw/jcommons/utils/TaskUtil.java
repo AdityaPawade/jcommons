@@ -1,19 +1,27 @@
 package com.adtsw.jcommons.utils;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import com.adtsw.jcommons.execution.NamedThreadFactory;
+
 public class TaskUtil {
 
     private static final Logger logger = LogManager.getLogger(TaskUtil.class);
-    private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(12);
+    private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(
+        12, new NamedThreadFactory("task-util-scheduler")
+    );
+    private static final ExecutorService taskExecutorService = Executors.newFixedThreadPool(
+        12, new NamedThreadFactory("task-util-execution")
+    );
     private static final Map<String, ScheduledFuture<?>> taskHandles = new HashMap<>();
 
     public static void scheduleTask(String taskName, long initialDelay, long period, 
@@ -26,7 +34,8 @@ public class TaskUtil {
         
         logger.info("scheduling " + taskName + " at period " + period);
         final ScheduledFuture<?> taskHandle = scheduler.scheduleAtFixedRate(
-            new ScheduledTask(taskName, task, variationInSeconds, timeoutInSeconds), initialDelay, period, unit
+            new ScheduledTask(taskName, task, variationInSeconds, timeoutInSeconds, taskExecutorService), 
+            initialDelay, period, unit
         );
 
         taskHandles.put(taskName, taskHandle);

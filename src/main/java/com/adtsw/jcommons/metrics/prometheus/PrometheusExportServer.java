@@ -1,12 +1,18 @@
 package com.adtsw.jcommons.metrics.prometheus;
 
+import java.util.concurrent.BlockingQueue;
+
 import javax.servlet.Servlet;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
+import org.eclipse.jetty.util.thread.QueuedThreadPool;
+
+import com.adtsw.jcommons.execution.NamedThreadFactory;
 
 import io.prometheus.client.CollectorRegistry;
 
@@ -30,7 +36,15 @@ public class PrometheusExportServer {
 
     public PrometheusExportServer(int port, PrometheusStatsServlet defaultMetricsServlet, String defaultPathSpec) {
         this.port = port;
-        this.server = new Server(port);
+        NamedThreadFactory threadFactory = new NamedThreadFactory("prometheus-export");
+        QueuedThreadPool qtp = new QueuedThreadPool(
+            10, 5, 60000, -1, 
+            (BlockingQueue<Runnable>) null, threadFactory.getGroup(), threadFactory
+        );
+        this.server = new Server(qtp);
+        ServerConnector connector = new ServerConnector(server);
+        connector.setPort(port);
+        this.server.addConnector(connector);
         this.context = new ServletContextHandler();
         this.context.setContextPath("/");
         this.server.setHandler(context);

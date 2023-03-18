@@ -3,10 +3,13 @@ package com.adtsw.jcommons.execution;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import lombok.Getter;
+
 /**
  * A simple named thread factory.
  */
 public class NamedThreadFactory implements ThreadFactory {
+    @Getter
     private final ThreadGroup group;
     private final AtomicInteger threadNumber = new AtomicInteger(1);
     private final String namePrefix;

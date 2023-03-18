@@ -22,7 +22,7 @@ public class BlockingThreadPoolExecutor extends ThreadPoolExecutor {
             threadPoolSize, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS, 
             new SynchronousQueue<>(), 
             new ThreadFactoryBuilder()
-                .setNameFormat("Thread-pool-" + poolName + "-%d")
+                .setNameFormat(poolName + "-thread-%d")
                 .setUncaughtExceptionHandler(new TerminateExceptionHandler()).build()
         );
         this.poolName = poolName;
